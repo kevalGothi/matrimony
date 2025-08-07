@@ -1,574 +1,198 @@
 <?php
     session_start();
     include "db/conn.php";
-    error_reporting(0);
-?>
+    
+    // For development, show errors
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
 
-<?php 
-    include "inc/header.php";
-?>
-<?php 
-    include "inc/bodystart.php";
-?>
-<?php 
-    include "inc/navbar.php";
-?>
-<?php
+    // --- 1. AUTHENTICATION ---
+    if (!isset($_SESSION['username']) || !isset($_SESSION['password'])) {
+        echo "<script>alert('Please login to continue.'); window.location.href='login.html';</script>";
+        exit();
+    }
+
     $userN = $_SESSION['username'];
     $psw = $_SESSION['password'];
-    if($userN == true && $psw == true){
-        $user = mysqli_query($conn,"select * from tbl_user where user_phone = '$userN' and user_pass = '$psw'");
-        $fe = mysqli_fetch_array($user);
-?>
 
-    <!-- LOGIN -->
+    $stmt = $conn->prepare("SELECT * FROM tbl_user WHERE user_phone = ? AND user_pass = ?");
+    $stmt->bind_param("ss", $userN, $psw);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 0) {
+        echo "<script>alert('Session error. Please login again.'); window.location.href='login.html';</script>";
+        exit();
+    }
+    
+    $loggedInUser = $result->fetch_assoc();
+    $loggedInUserID = $loggedInUser['user_id'];
+
+    // --- 2. FETCH DASHBOARD DATA (COUNTS) ---
+
+    // Count of new interests RECEIVED by the user
+    $stmt_new_interests = $conn->prepare("SELECT COUNT(chat_id) AS count FROM tbl_chat WHERE chat_receiverID = ? AND interest_status = 0");
+    $stmt_new_interests->bind_param("i", $loggedInUserID);
+    $stmt_new_interests->execute();
+    $new_interests_count = $stmt_new_interests->get_result()->fetch_assoc()['count'];
+
+    // Count of interests SENT by the user that were accepted by others
+    $stmt_sent_accepted = $conn->prepare("SELECT COUNT(chat_id) AS count FROM tbl_chat WHERE chat_senderID = ? AND interest_status = 1");
+    $stmt_sent_accepted->bind_param("i", $loggedInUserID);
+    $stmt_sent_accepted->execute();
+    $sent_accepted_count = $stmt_sent_accepted->get_result()->fetch_assoc()['count'];
+
+    // Total interests SENT by the user
+    $stmt_sent_total = $conn->prepare("SELECT COUNT(chat_id) AS count FROM tbl_chat WHERE chat_senderID = ? AND interest_status != 9");
+    $stmt_sent_total->bind_param("i", $loggedInUserID);
+    $stmt_sent_total->execute();
+    $sent_total_count = $stmt_sent_total->get_result()->fetch_assoc()['count'];
+?>
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Wedding Matrimony - My Dashboard</title>
+    <!-- Your standard CSS includes -->
+    <link rel="stylesheet" href="css/bootstrap.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <?php include "inc/header.php"; ?>
+    <?php include "inc/bodystart.php"; ?>
+    <?php include "inc/navbar.php"; ?>
+
     <section>
         <div class="db">
             <div class="container">
                 <div class="row">
-
+                    <!-- Left Navigation -->
                     <div class="col-md-4 col-lg-3">
-                        <div class="db-nav">
-                            <div class="db-nav-pro"><img src="images/profiles/12.jpg" class="img-fluid" alt=""></div>
-                            <div class="db-nav-list">
-                                <ul>
-                                        <li>
-                                            <a href="user-dashboard.php" class="act">
-                                                <i class="fa fa-tachometer" aria-hidden="true"></i>Dashboard
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="user-profile.php">
-                                                <i class="fa fa-male" aria-hidden="true"></i>Profile
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="see-other-profile.php" class="">
-                                                <i class="fa fa-male" aria-hidden="true"></i>See Others Profile
-                                            </a>
-                                        </li>
-                                        <li><a href="user-profile-edit.php"><i class="fa fa-male" aria-hidden="true"></i>Edit Profile</a></li>
-                                        <li>
-                                            <a href="user-interests.php">
-                                                <i class="fa fa-handshake-o" aria-hidden="true"></i>Interests
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="user-chat.php">
-                                                <i class="fa fa-commenting-o" aria-hidden="true"></i>Chat list
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="plans.php">
-                                                <i class="fa fa-money" aria-hidden="true"></i>Plan
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="user-setting.php">
-                                                <i class="fa fa-cog" aria-hidden="true"></i>Setting
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="#">
-                                                <i class="fa fa-sign-out" aria-hidden="true"></i>Log out
-                                            </a>
-                                        </li>
-                                    </ul>
-                            </div>
-                        </div> 
+                
+                        
+                        <?php include "inc/dashboard_nav.php"; ?>
                     </div>
-                    
-                     <div class="col-md-8 col-lg-9">
-                        <div class="col-md-12 db-sec-com db-new-pro-main">
-                            <h2 class="db-tit">New Profiles Matches</h2>
-                            <ul class="slider">
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/16.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <div class="pro-ave" title="User currently available">
-                                            <span class="pro-ave-yes"></span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/2.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/3.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/4.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/5.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/6.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <div class="pro-ave" title="User currently available">
-                                            <span class="pro-ave-yes"></span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                                <li>
-                                    <div class="db-new-pro">
-                                        <img src="images/profiles/14.jpg" alt="" class="profile">
-                                        <div>
-                                            <h5>Julia ann</h5>
-                                            <span class="city">New york</span>
-                                            <span class="age">22 Years old</span>
-                                        </div>
-                                        <div class="pro-ave" title="User currently available">
-                                            <span class="pro-ave-yes"></span>
-                                        </div>
-                                        <a href="profile-details.html" class="fclick" target="_blank">&nbsp;</a>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-12 col-lg-6 col-xl-4 db-sec-com">
-                                <h2 class="db-tit">Profiles status</h2>
-                                <div class="db-pro-stat">
-                                    <h6>Profile completion</h6>
-                                    <div class="dropdown">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="dropdown">
-                                            <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                          <li><a class="dropdown-item" href="#">Edid profile</a></li>
-                                          <li><a class="dropdown-item" href="#">View profile</a></li>
-                                          <li><a class="dropdown-item" href="#">Profile visibility settings</a></li>
-                                        </ul>
-                                      </div>
-                                    <div class="db-pro-pgog">
-                                        <span><b class="count">90</b>%</span>
-                                    </div>
-                                    <ul class="pro-stat-ic">
-                                        <li><span><i class="fa fa-heart-o like" aria-hidden="true"></i><b>12</b>Likes</span></li>
-                                        <li><span><i class="fa fa-eye view" aria-hidden="true"></i><b>12</b>Views</span></li>
-                                        <li><span><i class="fa fa-handshake-o inte" aria-hidden="true"></i><b>12</b>Interests</span></li>
-                                        <li><span><i class="fa fa-hand-pointer-o clic" aria-hidden="true"></i><b>12</b>Clicks</span></li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="col-md-12 col-lg-6 col-xl-4 db-sec-com">
-                                <h2 class="db-tit">Plan details</h2>
-                                <div class="db-pro-stat">
-                                    <h6 class="tit-top-curv">Standard plan</h6>
-                                    <div class="dropdown">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="dropdown">
-                                            <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                          <li><a class="dropdown-item" href="#">Edid profile</a></li>
-                                          <li><a class="dropdown-item" href="#">View profile</a></li>
-                                          <li><a class="dropdown-item" href="#">Plan change</a></li>
-                                          <li><a class="dropdown-item" href="#">Download invoice now</a></li>
-                                        </ul>
-                                    </div>
-                                    <div class="db-plan-card">
-                                        <img src="images/icon/plan.png" alt="">
-                                    </div>
-                                    <div class="db-plan-detil">
-                                        <ul>
-                                            <li>Plan name: <strong>Standard</strong></li>
-                                            <li>Validity: <strong>6 Months</strong></li>
-                                            <li>Valid till <strong>24 June 2024</strong></li>
-                                            <li><a href="#" class="cta-3">Upgrade now</a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-12 col-xl-4 db-sec-com">
-                                <h2 class="db-tit">Recent chat list</h2>
-                                    <div class="db-pro-stat">
-                                        <div class="db-inte-prof-list db-inte-prof-chat">
-                                            <ul>
-                                                <li>
-                                                    <div class="db-int-pro-1"> <img src="images/profiles/2.jpg" alt=""> </div>
-                                                    <div class="db-int-pro-2">
-                                                        <h5>Julia Ann</h5> <span>Illunois, United States</span> </div>
-                                                </li>
-                                                <li>
-                                                    <div class="db-int-pro-1"> <img src="images/profiles/16.jpg" alt=""> </div>
-                                                    <div class="db-int-pro-2">
-                                                        <h5>Julia Ann</h5> <span>Illunois, United States</span> </div>
-                                                </li>
-                                                <li>
-                                                    <div class="db-int-pro-1"> <img src="images/profiles/13.jpg" alt=""> </div>
-                                                    <div class="db-int-pro-2">
-                                                        <h5>Julia Ann</h5> <span>Illunois, United States</span> </div>
-                                                </li>
-                                                <li>
-                                                    <div class="db-int-pro-1"> <img src="images/profiles/14.jpg" alt=""> </div>
-                                                    <div class="db-int-pro-2">
-                                                        <h5>Julia Ann</h5> <span>Illunois, United States</span> </div>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-12 db-sec-com">
-                                <h2 class="db-tit">Interest request</h2>
-                                <div class="db-pro-stat">
-                                    <div class="dropdown">
-                                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="dropdown">
-                                            <i class="fa fa-ellipsis-h" aria-hidden="true"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                          <li><a class="dropdown-item" href="#">Edid profile</a></li>
-                                          <li><a class="dropdown-item" href="#">View profile</a></li>
-                                          <li><a class="dropdown-item" href="#">Plan change</a></li>
-                                          <li><a class="dropdown-item" href="#">Download invoice now</a></li>
-                                        </ul>
-                                    </div>
-                                    <div class="db-inte-main">
-                                       
-                                          <ul class="nav nav-tabs" role="tablist">
-                                            <li class="nav-item">
-                                              <a class="nav-link active" data-bs-toggle="tab" href="#home">New requests</a>
-                                            </li>
-                                            <li class="nav-item">
-                                              <a class="nav-link" data-bs-toggle="tab" href="#menu1">Accept request</a>
-                                            </li>
-                                            <li class="nav-item">
-                                              <a class="nav-link" data-bs-toggle="tab" href="#menu2">Denay request</a>
-                                            </li>
-                                          </ul>
-                                          
 
-  <div class="tab-content">
-    <div id="home" class="container tab-pane active"><br>
-      <div class="db-inte-prof-list">
-            <ul>
-                <li>
-                    <div class="db-int-pro-1"> <img src="images/profiles/men1.jpg" alt=""> <span class="badge bg-primary user-pla-pat">Platinum user</span></div>
-                    <div class="db-int-pro-2">
-                        <h5>John Smith</h5> 
-                        <ol class="poi">
-                            <li>City: <strong>Illunois</strong></li>
-                            <li>Age: <strong>21</strong></li>
-                            <li>Height: <strong>5.7</strong></li>
-                            <li>Job: <strong>Working</strong></li>
-                        </ol>
-                        <ol class="poi poi-date">
-                            <li>Request on: 10:30 AM, 18 August 2024</li>
-                        </ol>
-                        <a href="profile-details.html" class="cta-5" target="_blank">View full profile</a>
-                    </div>
-                    <div class="db-int-pro-3">
-                        <button type="button" class="btn btn-success btn-sm">Accept</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm">Denay</button>
-                    </div>
-                </li>
-                <li>
-                    <div class="db-int-pro-1"> <img src="images/profiles/men2.jpg" alt=""> <span class="badge bg-primary user-pla-gold">Gold user</span></div>
-                    <div class="db-int-pro-2">
-                        <h5>John Smith</h5> 
-                        <ol class="poi">
-                            <li>City: <strong>Illunois</strong></li>
-                            <li>Age: <strong>21</strong></li>
-                            <li>Height: <strong>5.7</strong></li>
-                            <li>Job: <strong>Working</strong></li>
-                        </ol>
-                        <ol class="poi poi-date">
-                            <li>Request on: 10:30 AM, 18 August 2024</li>
-                        </ol>
-                        <a href="profile-details.html" class="cta-5" target="_blank">View full profile</a>
-                    </div>
-                    <div class="db-int-pro-3">
-                        <button type="button" class="btn btn-success btn-sm">Accept</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm">Denay</button>
-                    </div>
-                </li>
-                <li>
-                    <div class="db-int-pro-1"> <img src="images/profiles/men3.jpg" alt=""> <span class="badge bg-primary user-pla-free">Free user</span></div>
-                    <div class="db-int-pro-2">
-                        <h5>John Smith</h5> 
-                        <ol class="poi">
-                            <li>City: <strong>Illunois</strong></li>
-                            <li>Age: <strong>21</strong></li>
-                            <li>Height: <strong>5.7</strong></li>
-                            <li>Job: <strong>Working</strong></li>
-                        </ol>
-                        <ol class="poi poi-date">
-                            <li>Request on: 10:30 AM, 18 August 2024</li>
-                        </ol>
-                        <a href="profile-details.html" class="cta-5" target="_blank">View full profile</a>
-                    </div>
-                    <div class="db-int-pro-3">
-                        <button type="button" class="btn btn-success btn-sm">Accept</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm">Denay</button>
-                    </div>
-                </li>
-                <li>
-                    <div class="db-int-pro-1"> <img src="images/profiles/men4.jpg" alt=""> </div>
-                    <div class="db-int-pro-2">
-                        <h5>John Smith</h5> 
-                        <ol class="poi">
-                            <li>City: <strong>Illunois</strong></li>
-                            <li>Age: <strong>21</strong></li>
-                            <li>Height: <strong>5.7</strong></li>
-                            <li>Job: <strong>Working</strong></li>
-                        </ol>
-                        <ol class="poi poi-date">
-                            <li>Request on: 10:30 AM, 18 August 2024</li>
-                        </ol>
-                        <a href="profile-details.html" class="cta-5" target="_blank">View full profile</a>
-                    </div>
-                    <div class="db-int-pro-3">
-                        <button type="button" class="btn btn-success btn-sm">Accept</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm">Denay</button>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </div>
-    <div id="menu1" class="container tab-pane fade"><br>
-        <div class="db-inte-prof-list">
-            <ul>
-                <li>
-                    <div class="db-int-pro-1"> <img src="images/profiles/men5.jpg" alt=""> </div>
-                    <div class="db-int-pro-2">
-                        <h5>John Smith</h5> 
-                        <ol class="poi">
-                            <li>City: <strong>Illunois</strong></li>
-                            <li>Age: <strong>21</strong></li>
-                            <li>Height: <strong>5.7</strong></li>
-                            <li>Job: <strong>Working</strong></li>
-                        </ol>
-                        <ol class="poi poi-date">
-                            <li>Request on: 10:30 AM, 18 August 2024</li>
-                            <li>Accept on: 3:000 PM, 21 August 2024</li>
-                        </ol>
-                        <a href="profile-details.html" class="cta-5" target="_blank">View full profile</a>
-                    </div>
-                    <div class="db-int-pro-3">
-                        <button type="button" class="btn btn-outline-danger btn-sm">Denay</button>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </div>
-    <div id="menu2" class="container tab-pane fade"><br>
-        <div class="db-inte-prof-list">
-            <ul>
-                <li>
-                    <div class="db-int-pro-1"> <img src="images/profiles/men1.jpg" alt=""> </div>
-                    <div class="db-int-pro-2">
-                        <h5>John Smith</h5> 
-                        <ol class="poi">
-                            <li>City: <strong>Illunois</strong></li>
-                            <li>Age: <strong>21</strong></li>
-                            <li>Height: <strong>5.7</strong></li>
-                            <li>Job: <strong>Working</strong></li>
-                        </ol>
-                        <ol class="poi poi-date">
-                            <li>Request on: 10:30 AM, 18 August 2024</li>
-                            <li>Denay on: 3:000 PM, 21 August 2024</li>
-                        </ol>
-                        <a href="profile-details.html" class="cta-5" target="_blank">View full profile</a>
-                    </div>
-                    <div class="db-int-pro-3">
-                        <button type="button" class="btn btn-success btn-sm">Accept</button>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </div>
-  </div>
-                                    </div>
-                                </div>
+                    <!-- Right Content: Dashboard -->
+                    <div class="col-md-8 col-lg-9">
+                        <div class="db-sec-com db-wel">
+                            <div class="db-wel-lhs">
+                                <h2>Welcome, <?php echo htmlspecialchars($loggedInUser['user_name']); ?>!</h2>
+                                <p>Here's a quick look at your profile activity.</p>
                             </div>
-                            <div class="col-md-12 db-sec-com">
-                                <h2 class="db-tit">Profiles views</h2>
-                                <div class="chartin">
-                                    <canvas id="Chart_leads"></canvas>
+                            <div class="db-wel-rhs">
+                                <a href="user-profile-edit.php" class="cta-3">Edit my profile</a>
+                            </div>
+                        </div>
+
+                        <!-- Main Dashboard Statistics -->
+                        <div class="db-sec-com db-pro-stat">
+                            <div class="row">
+                                <!-- New Interests Received -->
+                                <div class="col-md-4">
+                                    <a href="user-interests.php">
+                                        <div class="db-pro-stat-box">
+                                            <i class="fa fa-envelope-open-o" aria-hidden="true"></i>
+                                            <h4><?php echo $new_interests_count; ?></h4>
+                                            <p>New interests received</p>
+                                        </div>
+                                    </a>
+                                </div>
+                                <!-- Interests Sent -->
+                                <div class="col-md-4">
+                                     <a href="user-interests.php">
+                                        <div class="db-pro-stat-box">
+                                            <i class="fa fa-paper-plane-o" aria-hidden="true"></i>
+                                            <h4><?php echo $sent_total_count; ?></h4>
+                                            <p>Interests you sent</p>
+                                        </div>
+                                    </a>
+                                </div>
+                                <!-- Interests Accepted -->
+                                <div class="col-md-4">
+                                    <a href="user-interests.php">
+                                        <div class="db-pro-stat-box">
+                                            <i class="fa fa-check-square-o" aria-hidden="true"></i>
+                                            <h4><?php echo $sent_accepted_count; ?></h4>
+                                            <p>Interests accepted</p>
+                                        </div>
+                                    </a>
+                                </div>
+                                <!-- Profile Views (Static example) -->
+                                <div class="col-md-4">
+                                    <a href="#!">
+                                        <div class="db-pro-stat-box">
+                                            <i class="fa fa-eye" aria-hidden="true"></i>
+                                            <h4>0</h4>
+                                            <p>Profile Views <!-- Note: Needs a view tracking system to be dynamic --></p>
+                                        </div>
+                                    </a>
+                                </div>
+                                <!-- Chat List -->
+                                <div class="col-md-4">
+                                    <a href="user-chat.php">
+                                        <div class="db-pro-stat-box">
+                                            <i class="fa fa-commenting-o" aria-hidden="true"></i>
+                                            <h4>Chat</h4>
+                                            <p>Your conversations</p>
+                                        </div>
+                                    </a>
+                                </div>
+                                 <!-- Plans -->
+                                <div class="col-md-4">
+                                    <a href="plans.php">
+                                        <div class="db-pro-stat-box">
+                                            <i class="fa fa-money" aria-hidden="true"></i>
+                                            <h4>Plans</h4>
+                                            <p>Upgrade your plan</p>
+                                        </div>
+                                    </a>
                                 </div>
                             </div>
                         </div>
-                    </div> -->
+
+                        <!-- Account Status Section -->
+                        <div class="db-sec-com db-pro-stat">
+                             <div class="row">
+                                <div class="col-md-12">
+                                    <h4>Account Status</h4>
+                                    <?php
+                                        // Profile Approval Status
+                                        if ($loggedInUser['user_status'] == '1') {
+                                            echo "<div class='alert alert-success'>Your profile is <strong>approved</strong> and visible to others.</div>";
+                                        } else {
+                                            echo "<div class='alert alert-warning'>Your profile is <strong>pending admin approval</strong> and is not yet visible.</div>";
+                                        }
+
+                                        // Subscription Plan Status
+                                        $plan_status_message = '';
+                                        if (empty($loggedInUser['plan_type']) || $loggedInUser['plan_type'] == 'Free') {
+                                            $plan_status_message = "You are on the <strong>Free Plan</strong>. <a href='plans.php' class='alert-link'>Upgrade now</a> for full access.";
+                                            echo "<div class='alert alert-info'>$plan_status_message</div>";
+                                        } else {
+                                            $expiry_date = new DateTime($loggedInUser['plan_expiry_date']);
+                                            $today = new DateTime();
+                                            if ($expiry_date < $today) {
+                                                $plan_status_message = "Your <strong>".htmlspecialchars($loggedInUser['plan_type'])." Plan has expired</strong>. <a href='plans.php' class='alert-link'>Renew now</a> to continue using premium features.";
+                                                echo "<div class='alert alert-danger'>$plan_status_message</div>";
+                                            } else {
+                                                $plan_status_message = "You have an active <strong>".htmlspecialchars($loggedInUser['plan_type'])." Plan</strong>, which expires on " . $expiry_date->format('d M, Y') . ".";
+                                                echo "<div class='alert alert-success'>$plan_status_message</div>";
+                                            }
+                                        }
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-<?php
-    }else{
-        echo "<script>alert('Please Login Now')</script>";
-        echo "<script>window.location.href='login.html'</script>";
-    }
+    <?php
+    include "inc/copyright.php";
 ?>
-    <!-- FOOTER -->
-    <section class="wed-hom-footer">
-        <div class="container">
-            <div class="row foot-supp">
-                <h2><span>Free support:</span> +92 (8800) 68 - 8960 &nbsp;&nbsp;|&nbsp;&nbsp; <span>Email:</span>
-                    info@example.com</h2>
-            </div>
-            <div class="row wed-foot-link wed-foot-link-1">
-                <div class="col-md-4">
-                    <h4>Get In Touch</h4>
-                    <p>Address: 3812 Lena Lane City Jackson Mississippi</p>
-                    <p>Phone: <a href="tel:+917904462944">+92 (8800) 68 - 8960</a></p>
-                    <p>Email: <a href="mailto:info@example.com">info@example.com</a></p>
-                </div>
-                <div class="col-md-4">
-                    <h4>HELP &amp; SUPPORT</h4>
-                    <ul>
-                        <li><a href="about-us.html">About company</a>
-                        </li>
-                        <li><a href="#!">Contact us</a>
-                        </li>
-                        <li><a href="#!">Feedback</a>
-                        </li>
-                        <li><a href="about-us.html#faq">FAQs</a>
-                        </li>
-                        <li><a href="about-us.html#testimonials">Testimonials</a>
-                        </li>
-                    </ul>
-                </div>
-                <div class="col-md-4 fot-soc">
-                    <h4>SOCIAL MEDIA</h4>
-                    <ul>
-                        <li><a href="#!"><img src="images/social/1.png" alt=""></a></li>
-                        <li><a href="#!"><img src="images/social/2.png" alt=""></a></li>
-                        <li><a href="#!"><img src="images/social/3.png" alt=""></a></li>
-                        <li><a href="#!"><img src="images/social/5.png" alt=""></a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="row foot-count">
-                <p>Company name Site - Trusted by over thousands of Boys & Girls for successfull marriage. <a
-                        href="sign-up.html" class="btn btn-primary btn-sm">Join us today !</a></p>
-            </div>
-        </div>
-    </section>
-    <!-- END -->
-    <!-- COPYRIGHTS -->
-    <section>
-        <div class="cr">
-            <div class="container">
-                <div class="row">
-                    <p>Copyright © <span id="cry">2017-2020</span> <a href="#!" target="_blank">Company.com</a> All
-                        rights reserved.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- END -->
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="js/jquery.min.js"></script>
-    <script src="js/popper.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/slick.js"></script>
-    <script src="js/select-opt.js"></script>
-    <script src="js/Chart.js"></script>
-    <script src="js/custom.js"></script>
-    <script>
-         //COMMON SLIDER
-    $('.slider').slick({
-        infinite: false,
-        slidesToShow: 5,
-        arrows: false,
-        slidesToScroll: 1,
-        autoplay: true,
-        autoplaySpeed: 3000,
-        dots: false,
-        responsive: [{
-            breakpoint: 992,
-            settings: {
-                slidesToShow: 3,
-                slidesToScroll: 1,
-                centerMode: false
-            }
-        }]
-
-    });
-
-    $('.count').each(function () {
-    $(this).prop('Counter',0).animate({
-        Counter: $(this).text()
-    }, {
-        duration: 4000,
-        easing: 'swing',
-        step: function (now) {
-            $(this).text(Math.ceil(now));
-        }
-    });
-});
-
-var xValues = "0";
-    var yValues = "50";
-
-    new Chart("Chart_leads", {
-        type: "line",
-        data: {
-            labels: xValues,
-            datasets: [{
-                fill: false,
-                lineTension: 0,
-                backgroundColor: "#f1bb51",
-                borderColor: "#fae9c8",
-                data: yValues
-            }]
-        },
-        options: {
-            responsive: true,
-            legend: {display: false},
-            scales: {
-                yAxes: [{ticks: {min: 0, max: 100}}]
-            }
-        }
-    });
-    </script>
-</body>
-</html>
+<?php
+    include "inc/footerlink.php";
+?>

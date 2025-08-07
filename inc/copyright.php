@@ -10,19 +10,18 @@
                     <h4>Get In Touch</h4>
                     <p>Address: 13-14, Bakor Nagar, New VIP Road, Vadodara, Gujarat - 390019</p>
                     <p>Phone: <a href="tel:919727410836">+91 97274 10836</a></p>
-                    <p>Email: <a href="mailto:info@example.com">info@jeevansathimela.com</a></p>
+                    <p>Email: <a href="mailto:info@jeevansathimela.com">info@jeevansathimela.com</a></p>
                 </div>
                 <div class="col-md-6">
                     <h4>Quick Links</h4>
                     <ul>
-                        <li><a href="index.php">Home</a>
-                        </li>
-                        <li><a href="login.php">Login</a>
-                        </li>
-                        <li><a href="client_sign_up.php">Register</a>
-                        </li>
-                        <li><a href="contact.php">Contact us</a>
-                        </li>
+                                        <li><a href="user-dashboard.php">My Dashboard</a></li>
+                                        <li><a href="user-profile.php">My Profile</a></li>
+                                        <li><a href="user-profile-edit.php">Edit Profile</a></li>
+                                        <li><a href="user-interests.php">My Interests</a></li>
+                                        <li><a href="user-chat.php">My Chats</a></li>
+                                        <li><a href="user-setting.php">Settings</a></li>
+                                        <li><a href="logout.php">Log Out</a></li>
                     </ul>
                 </div>
             </div>

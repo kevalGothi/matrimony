@@ -325,5 +325,26 @@ if ($lis.length > 0) {
         ]
 
     });
+    
 
 }
+
+// Add this to the very end of js/custom.js
+$(document).ready(function() {
+    $(document).on('click', '.confirm-action-btn', function(event) {
+        event.preventDefault(); 
+        const url = $(this).attr('href');
+        const title = $(this).data('title') || 'Are you sure?';
+        const text = $(this).data('text') || 'This action cannot be undone!';
+        const confirmText = $(this).data('confirm-text') || 'Yes, do it!';
+        Swal.fire({
+            title: title, text: text, icon: 'warning', showCancelButton: true,
+            confirmButtonColor: '#3085d6', cancelButtonColor: '#d33',
+            confirmButtonText: confirmText
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = url;
+            }
+        });
+    });
+});

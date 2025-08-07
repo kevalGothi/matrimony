@@ -71,4 +71,9 @@
         </div>
     </div>
 </section>
-<?php include "inc/footer.php"; ?>
+<?php
+    include "inc/copyright.php";
+?>
+<?php
+    include "inc/footerlink.php";
+?>

@@ -1,356 +1,125 @@
 <?php
     session_start();
     include "db/conn.php";
-    error_reporting(0);
-?>
+    
+    // For development, show errors. For production, turn this off.
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
 
-<?php 
-    include "inc/header.php";
-?>
-<?php 
-    include "inc/bodystart.php";
-?>
-<?php 
-    include "inc/navbar.php";
-?>
+    // --- 1. AUTHENTICATION ---
+    if (!isset($_SESSION['username']) || !isset($_SESSION['password'])) {
+        echo "<script>alert('Please login to continue.'); window.location.href='login.php';</script>";
+        exit();
+    }
+    $userN = $_SESSION['username'];
+    $psw = $_SESSION['password'];
+    $stmt = $conn->prepare("SELECT * FROM tbl_user WHERE user_phone = ? AND user_pass = ?");
+    $stmt->bind_param("ss", $userN, $psw);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows === 0) {
+        session_destroy();
+        echo "<script>alert('Session error. Please login again.'); window.location.href='login.php';</script>";
+        exit();
+    }
+    $loggedInUser = $result->fetch_assoc();
+    $loggedInUserID = $loggedInUser['user_id'];
 
-        <!-- LOGIN -->
-        <section>
-            <div class="db">
-                <div class="container">
-                    <div class="row">
-                        <div class="col-md-4 col-lg-3">
-                            <div class="db-nav">
-                                <div class="db-nav-pro">
-                                    <img src="images/profiles/12.jpg" class="img-fluid" alt="">
-                                </div>
-                                <div class="db-nav-list">
-                                     <ul>
-                                        <li>
-                                            <a href="user-dashboard.php">
-                                                <i class="fa fa-tachometer" aria-hidden="true"></i>Dashboard
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="user-profile.php">
-                                                <i class="fa fa-male" aria-hidden="true"></i>Profile
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="see-other-profile.php" class="">
-                                                <i class="fa fa-male" aria-hidden="true"></i>See Others Profile
-                                            </a>
-                                        </li>
-                                        <li><a href="user-profile-edit.php"><i class="fa fa-male" aria-hidden="true"></i>Edit Profile</a></li>
-                                        <li>
-                                            <a href="user-interests.php">
-                                                <i class="fa fa-handshake-o" aria-hidden="true"></i>Interests
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="user-chat.php" class="act">
-                                                <i class="fa fa-commenting-o" aria-hidden="true"></i>Chat list
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="plans.php">
-                                                <i class="fa fa-money" aria-hidden="true"></i>Plan
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="user-setting.php">
-                                                <i class="fa fa-cog" aria-hidden="true"></i>Setting
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a href="#">
-                                                <i class="fa fa-sign-out" aria-hidden="true"></i>Log out
-                                            </a>
-                                        </li>
+    // --- 2. FETCH CONVERSATIONS ---
+    // This query finds all users with whom the logged-in user has a mutually accepted interest (status=1).
+    // It groups them to ensure each person only appears once in the chat list.
+    $conversations_stmt = $conn->prepare("
+        SELECT
+            other_user.user_id,
+            other_user.user_name,
+            other_user.user_img
+        FROM tbl_chat
+        JOIN tbl_user AS other_user ON
+            (CASE
+                WHEN tbl_chat.chat_senderID = ? THEN tbl_chat.chat_receiverID
+                ELSE tbl_chat.chat_senderID
+            END) = other_user.user_id
+        WHERE
+            (tbl_chat.chat_senderID = ? OR tbl_chat.chat_receiverID = ?)
+            AND tbl_chat.interest_status = 1
+        GROUP BY
+            other_user.user_id
+        ORDER BY
+            MAX(tbl_chat.chat_date) DESC
+    ");
+    $conversations_stmt->bind_param("iii", $loggedInUserID, $loggedInUserID, $loggedInUserID);
+    $conversations_stmt->execute();
+    $conversations_result = $conversations_stmt->get_result();
+?>
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Wedding Matrimony - My Dashboard</title>
+    <!-- Your standard CSS includes -->
+    <link rel="stylesheet" href="css/bootstrap.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <?php include "inc/header.php"; ?>
+    <?php include "inc/bodystart.php"; ?>
+    <?php include "inc/navbar.php"; ?>
+
+    <section>
+        <div class="db">
+            <div class="container">
+                <div class="row">
+                    <!-- Left Navigation -->
+                    <div class="col-md-4 col-lg-3">
+                        <?php 
+                            // This single line replaces your hardcoded sidebar
+                            include "inc/dashboard_nav.php"; 
+                        ?>
+                    </div>
+
+                    <!-- Right Content: Chat List -->
+                    <div class="col-md-8 col-lg-9">
+                        <div class="db-sec-com">
+                            <h2 class="db-tit">My Chat List</h2>
+                            <div class="db-pro-stat">
+                                <div class="db-inte-prof-list">
+                                    <ul>
+                                        <?php if ($conversations_result && $conversations_result->num_rows > 0): ?>
+                                            <?php while ($row = $conversations_result->fetch_assoc()): ?>
+                                                <!-- Each list item is a link to the specific chat window -->
+                                                <a href="open-chat.php?receiver_id=<?php echo $row['user_id']; ?>" style="color: inherit; text-decoration: none;">
+                                                    <li style="cursor: pointer;">
+                                                        <div class="db-int-pro-1"> 
+                                                            <img src="upload/<?php echo !empty($row['user_img']) ? htmlspecialchars($row['user_img']) : 'default-profile.png'; ?>" alt="Profile Image">
+                                                        </div>
+                                                        <div class="db-int-pro-2">
+                                                            <h5><?php echo htmlspecialchars($row['user_name']); ?></h5>
+                                                            <ol class="poi poi-date"><li>Click to open conversation</li></ol>
+                                                        </div>
+                                                        <div class="db-int-pro-3">
+                                                            <span class="btn btn-primary btn-sm">Open Chat</span>
+                                                        </div>
+                                                    </li>
+                                                </a>
+                                            <?php endwhile; ?>
+                                        <?php else: ?>
+                                            <li class="text-center p-5">
+                                                You have no active chats. Go to your interests and accept a request, or wait for someone to accept yours to begin chatting.
+                                            </li>
+                                        <?php endif; ?>
                                     </ul>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-8 col-lg-9">
-                            <div class="row">
-                                <div class="col-md-12 db-sec-com">
-                                    <h2 class="db-tit">Chat list</h2>
-                                    <div class="db-pro-stat">
-                                        <div class="db-chat">
-                                            <ul>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/1.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Ashley emyy</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time new">
-                                                            <span class="timer">9:00 PM</span>
-                                                            <span class="cont">3</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/16.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Julia Ann</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time new">
-                                                            <span class="timer">9:00 PM</span>
-                                                            <span class="cont">2</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/12.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Elizabeth Taylor</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time new">
-                                                            <span class="timer">8:00 PM</span>
-                                                            <span class="cont">3</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/13.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Angelina Jolie</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time">
-                                                            <span class="timer">3:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/14.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Olivia mia</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time">
-                                                            <span class="timer">5:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/1.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Ashley emyy</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time new">
-                                                            <span class="timer">9:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/16.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Julia Ann</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time new">
-                                                            <span class="timer">9:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/12.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Elizabeth Taylor</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time new">
-                                                            <span class="timer">8:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/13.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Angelina Jolie</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time">
-                                                            <span class="timer">3:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                                <li class="db-chat-trig">
-                                                    <div class="db-chat-pro"> <img src="images/profiles/14.jpg" alt=""> </div>
-                                                    <div class="db-chat-bio">
-                                                        <h5>Olivia mia</h5> 
-                                                        <span>Hi Anna, How are you?</span> 
-                                                    </div>
-                                                    <div class="db-chat-info">
-                                                        <div class="time">
-                                                            <span class="timer">5:00 PM</span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
-        </section>
-        <!-- END -->
-        <!-- FOOTER -->
-        <section class="wed-hom-footer">
-            <div class="container">
-                <div class="row foot-supp">
-                    <h2>
-                        <span>Free support:</span> +92 (8800) 68 - 8960 &nbsp;&nbsp;|&nbsp;&nbsp;
-                        <span>Email:</span>
-                        info@example.com
-                    </h2>
-                </div>
-                <div class="row wed-foot-link wed-foot-link-1">
-                    <div class="col-md-4">
-                        <h4>Get In Touch</h4>
-                        <p>Address: 3812 Lena Lane City Jackson Mississippi</p>
-                        <p>Phone:
-                            <a href="tel:+917904462944">+92 (8800) 68 - 8960</a>
-                        </p>
-                        <p>Email:
-                            <a href="mailto:info@example.com">info@example.com</a>
-                        </p>
-                    </div>
-                    <div class="col-md-4">
-                        <h4>HELP &amp; SUPPORT</h4>
-                        <ul>
-                            <li>
-                                <a href="about-us.html">About company</a>
-                            </li>
-                            <li>
-                                <a href="#!">Contact us</a>
-                            </li>
-                            <li>
-                                <a href="#!">Feedback</a>
-                            </li>
-                            <li>
-                                <a href="about-us.html#faq">FAQs</a>
-                            </li>
-                            <li>
-                                <a href="about-us.html#testimonials">Testimonials</a>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="col-md-4 fot-soc">
-                        <h4>SOCIAL MEDIA</h4>
-                        <ul>
-                            <li>
-                                <a href="#!">
-                                    <img src="images/social/1.png" alt="">
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#!">
-                                    <img src="images/social/2.png" alt="">
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#!">
-                                    <img src="images/social/3.png" alt="">
-                                </a>
-                            </li>
-                            <li>
-                                <a href="#!">
-                                    <img src="images/social/5.png" alt="">
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="row foot-count">
-                    <p>Company name Site - Trusted by over thousands of Boys & Girls for successfull marriage.
-                        <a href="sign-up.html" class="btn btn-primary btn-sm">Join us today !</a>
-                    </p>
-                </div>
-            </div>
-        </section>
-        <!-- END -->
-        <!-- COPYRIGHTS -->
-        <section>
-            <div class="cr">
-                <div class="container">
-                    <div class="row">
-                        <p>Copyright ©
-                            <span id="cry">2017-2020</span>
-                            <a href="#!" target="_blank">Company.com</a>
-                            All
-                        rights reserved.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-        <!-- END -->
-
-        <!-- CHAT CONVERSATION BOX START -->
-    <div class="chatbox">
-        <span class="comm-msg-pop-clo"><i class="fa fa-times" aria-hidden="true"></i></span>
-
-        <div class="inn">
-            <form name="new_chat_form" method="post">
-                <div class="s1">
-                    <img src="images/user/2.jpg" class="intephoto2" alt="">
-                    <h4><b class="intename2">Julia</b>,</h4>
-                    <span class="avlsta avilyes">Available online</span>
-                </div>
-                <div class="s2 chat-box-messages">
-                    <span class="chat-wel">Start a new chat!!! now</span>
-                    <div class="chat-con">
-                        <div class="chat-lhs">Hi</div>
-                        <div class="chat-rhs">Hi</div>
-                    </div>
-                    <!--<span>Start A New Chat!!! Now</span>-->
-                </div>
-                <div class="s3">
-                    <input type="text" name="chat_message" placeholder="Type a message here.." required="">
-                    <button id="chat_send1" name="chat_send" type="submit">Send <i class="fa fa-paper-plane-o"
-                            aria-hidden="true"></i>
-                    </button>
-                </div>
-            </form>
         </div>
-    </div>
-    <!-- END -->
+    </section>
 
-        <!-- Optional JavaScript -->
-        <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-        <script src="js/jquery.min.js"></script>
-        <script src="js/popper.min.js"></script>
-        <script src="js/bootstrap.min.js"></script>
-        <script src="js/select-opt.js"></script>
-        <script src="js/Chart.js"></script>
-        <script src="js/custom.js"></script>
-        <script>
-        
-//CHAT WINDOW OPEN
-$(".db-chat-trig").on('click', function () {
-        $(".chatbox").addClass("open")
-    });
-
-        </script>
-    </body>
-
-<!-- Mirrored from rn53themes.net/themes/matrimo/user-chat.html by HTTrack Website Copier/3.x [XR&CO'2014], Sat, 12 Apr 2025 05:03:34 GMT -->
+    <!-- JS Includes -->
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/custom.js"></script>
+</body>
 </html>

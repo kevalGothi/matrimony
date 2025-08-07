@@ -63,4 +63,3 @@
     </div>
     <p style="margin-top:20px;">Please click the button above to proceed.</p>
 </div>
-<?php include "inc/footer.php"; ?>

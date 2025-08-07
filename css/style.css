@@ -494,7 +494,7 @@ img{
     box-shadow: rgba(51, 51, 51, 0.14) 0px 11px 11px -11px;
     float: left;
     transition: all 0.4s ease;
-    position: absolute;
+    /*position: absolute;*/
     z-index: 3;
 }
 
@@ -3276,7 +3276,7 @@ table td{}
 .all-pro-box div:nth-child(1) img {
     width: 100%;
     float: left;
-    object-fit: cover;
+    object-fit: contain;
     height: 205px;
     transition: all 0.5s ease 0s;
     cursor: pointer;
@@ -3694,12 +3694,12 @@ span.mail::before {
     transition: all 0.4s ease 0s;
 }
 
-.all-pro-box:hover .links span.cta-chat {
-    background: rgb(76, 175, 80);
-    border: 1px solid rgb(76, 175, 80);
-    color: rgb(255, 255, 255);
-    transition: all 0.4s ease 0s;
-}
+/*.all-pro-box:hover .links span.cta-chat {*/
+    /*background: rgb(76, 175, 80);*/
+    /*border: 1px solid rgb(76, 175, 80);*/
+    /*color: rgb(255, 255, 255);*/
+    /*transition: all 0.4s ease 0s;*/
+/*}*/
 
 .pro-ave {
     position: absolute;
@@ -12228,5 +12228,266 @@ h2.db-tit{
 
     .wedd-info ul li i {
         margin-right: 7px;
+    }
+}
+
+/* ADD THIS CODE TO THE END OF YOUR css/style.css FILE */
+
+/* --- Fix 1: Navbar Stacking Issue --- */
+/* This ensures the navbar (and its mobile dropdown) always stays on top of page content. */
+.hom-top {
+    /*position: sticky;*/
+    top: 0;
+    z-index: 1030; /* A high value to ensure it's above other elements */
+    background-color: white; /* Prevents page content from showing through a transparent navbar */
+}
+
+/* --- Fix 2: Ensure Main Profile Image Behaves Responsively --- */
+/* This prevents the large hero image from overflowing its container on small screens. */
+.main-profile-img {
+    width: 100%;
+    height: auto; /* Maintain aspect ratio */
+    max-height: 500px; /* Optional: prevents the image from being excessively tall */
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+/* =================================================================== */
+/* ============= MOBILE RESPONSIVE STYLES (ADD AT END) ============= */
+/* =================================================================== */
+
+/* --- STAGE 1: TABLET & SMALLER DESKTOPS (Screens less than 992px wide) --- */
+@media (max-width: 991.98px) {
+    /* Make dashboard sidebar stack on top of content */
+    .db .row > div {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    .db-nav {
+        margin-bottom: 2rem;
+    }
+
+    /* Adjust profile page layout */
+    .profi-pg .lhs, .profi-pg .rhs {
+        width: 100%;
+        padding: 0 15px;
+    }
+
+    .pg-pro-big-im .s3 {
+        position: relative;
+        width: 100%;
+        margin-top: 1rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+}
+
+
+/* --- STAGE 2: MOBILE PHONES (Screens less than 768px wide) --- */
+@media (max-width: 767.98px) {
+
+    /* --- GLOBAL & NAVBAR --- */
+    .hom-top .hom-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+    }
+    
+    /* Hide the desktop menu links */
+    .hom-top .bl {
+        display: none;
+    }
+    
+    /* Show the mobile menu hamburger icon */
+    .mob-menu {
+        display: block !important; /* This was likely in your original file but let's be sure */
+    }
+
+    /* Reduce font sizes for better readability */
+    h1, .h1 {
+        font-size: 2rem;
+    }
+    h2, .h2 {
+        font-size: 1.75rem;
+    }
+    .ban-tit h1 {
+        font-size: 2.5rem;
+    }
+    
+    /* Adjust spacing */
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .db-sec-com {
+        padding: 15px;
+    }
+
+    /* --- USER PROFILE & DETAILS PAGE --- */
+    .pg-pro-big-im .s1 img {
+        height: auto; /* Allow image to scale */
+        max-height: 400px;
+    }
+
+    .pro-pg-intro ul li {
+        width: 48%; /* Show two items per row on mobile */
+        margin-bottom: 10px;
+    }
+    
+    .pr-bio-c {
+        padding: 20px 15px;
+    }
+
+    .pro-gal-imag {
+        width: 32%; /* Allow three photos per row */
+        margin: 0.5%;
+    }
+
+
+    /* --- SEE OTHER PROFILE (LIST VIEW) --- */
+    .all-pro-box {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .all-pro-box .pro-img {
+        width: 150px; /* Centered, slightly larger image */
+        height: 150px;
+        margin-right: 0;
+        margin-bottom: 1rem;
+    }
+
+    .all-pro-box .pro-detail {
+        width: 100%;
+    }
+    
+    .pro-bio span {
+        display: block; /* Stack bio details vertically */
+        margin: 5px 0;
+    }
+
+    .all-list-sh .links {
+        justify-content: center; /* Center the action buttons */
+        margin-top: 1rem;
+    }
+
+    /* --- USER DASHBOARD --- */
+    .db-pro-stat-box {
+        margin-bottom: 1rem;
+    }
+
+    /* --- INTERESTS PAGE --- */
+    .db-inte-prof-list li {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .db-int-pro-1, .db-int-pro-2, .db-int-pro-3 {
+        width: 100%;
+        margin: 0;
+    }
+
+    .db-int-pro-2 {
+        margin: 1rem 0;
+    }
+
+    .db-int-pro-3 {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    /* --- LOGIN PAGE --- */
+    .login .lhs, .login .rhs {
+        width: 100%;
+    }
+
+    .login .lhs {
+        display: none; /* Hide the decorative couple image on small screens */
+    }
+}
+
+
+/* --- STAGE 3: VERY SMALL PHONES (Screens less than 576px wide) --- */
+@media (max-width: 575.98px) {
+    .pro-pg-intro ul li {
+        width: 100%; /* Show one item per row on very small screens */
+    }
+
+    .short-all {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .short-rhs ul {
+        justify-content: center;
+    }
+}
+
+
+/* =================================================================== */
+/* ============= MOBILE DASHBOARD NAVIGATION STYLES ============= */
+/* =================================================================== */
+
+/* --- By default, hide the mobile navigation on desktop --- */
+.mobile-dashboard-nav {
+    display: none;
+}
+
+/* --- STYLES FOR MOBILE SCREENS (Screens less than 768px wide) --- */
+@media (max-width: 767.98px) {
+    
+    /* 1. Hide the original desktop sidebar */
+    .db-nav {
+        display: none !important; 
+    }
+
+    /* 2. Style and display the new mobile bottom bar */
+    .mobile-dashboard-nav {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background-color: #ffffff;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000; /* Ensures it's on top of other content */
+    }
+
+    /* 3. Style the links and icons inside the mobile bar */
+    .mobile-dashboard-nav a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-grow: 1;
+        color: #888; /* Inactive icon color */
+        text-decoration: none;
+        font-size: 12px;
+    }
+
+    .mobile-dashboard-nav a .fa {
+        font-size: 20px;
+        margin-bottom: 4px;
+    }
+    
+    /* 4. Style the currently active link/icon */
+    .mobile-dashboard-nav a.active {
+        color: #f6af04; /* Your theme's primary color */
+    }
+
+    /* 5. Add padding to the bottom of the body to prevent content
+       from being hidden behind the new fixed navigation bar */
+    body {
+        padding-bottom: 70px; 
     }
 }

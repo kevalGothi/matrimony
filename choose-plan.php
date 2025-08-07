@@ -11,7 +11,7 @@
 <section class="plans-main" style="padding: 60px 0; background-color: #f9f9f9;">
     <div class="container">
         <div class="row">
-            <div class="text-center" style="margin-bottom: 40px;">
+            <div class="text-center" style="margin-bottom: 40px">
                 <h1>Account Created Successfully!</h1>
                 <h3>Please choose a subscription plan to continue.</h3>
                 <p>Your profile will be visible to others only after payment and admin approval.</p>
@@ -66,4 +66,9 @@
         </div>
     </div>
 </section>
-<?php include "inc/footer.php"; ?>
+<?php
+    include "inc/copyright.php";
+?>
+<?php
+    include "inc/footerlink.php";
+?>

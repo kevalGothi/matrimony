@@ -1,229 +1,159 @@
 <?php
-// Include your database connection file.
-// IMPORTANT: Adjust the path if your connection file is located elsewhere.
-include "./db/conn.php";
+    session_start();
+    include "db/conn.php";
+    
+    // For development, show errors. For production, turn this off.
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
 
-// 1. --- GET AND VALIDATE USER ID ---
-// Check if the 'id' parameter is set in the URL and is a number.
-if (!isset($_GET['id']) || !filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
-    // If no valid ID, stop and show an error.
-    die("Error: No profile ID was specified or the ID is invalid.");
-}
-$user_id = (int)$_GET['id'];
+    // --- 1. AUTHENTICATE THE VIEWER ---
+    if (!isset($_SESSION['username']) || !isset($_SESSION['password'])) {
+        echo "<script>alert('You must be logged in to view profiles.'); window.location.href='login.php';</script>";
+        exit();
+    }
+    $viewer_stmt = $conn->prepare("SELECT * FROM tbl_user WHERE user_phone = ? AND user_pass = ?");
+    $viewer_stmt->bind_param("ss", $_SESSION['username'], $_SESSION['password']);
+    $viewer_stmt->execute();
+    $viewer = $viewer_stmt->get_result()->fetch_assoc();
+    if(!$viewer) {
+        session_destroy();
+        echo "<script>alert('Your session is invalid. Please log in again.'); window.location.href='login.php';</script>";
+        exit();
+    }
 
+    // --- 2. GET & VALIDATE THE PROFILE ID FROM URL ---
+    if (!isset($_GET['id']) || !filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
+        header("Location: see-other-profile.php?error=invalid_id");
+        exit();
+    }
+    $user_id_to_view = (int)$_GET['id'];
 
-// 2. --- FETCH USER DATA FROM DATABASE ---
-// Use a prepared statement for security against SQL Injection.
-$stmt = $conn->prepare("SELECT * FROM tbl_user WHERE user_id = ? AND user_status = 1"); // Only show approved profiles
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$result = $stmt->get_result();
+    // --- 3. FETCH THE TARGET PROFILE'S DATA (Only if user is approved) ---
+    $stmt = $conn->prepare("SELECT * FROM tbl_user WHERE user_id = ? AND user_status = 1");
+    $stmt->bind_param("i", $user_id_to_view);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $profile_found = ($result->num_rows > 0);
+    $user = $profile_found ? $result->fetch_assoc() : null;
 
-if ($result->num_rows === 0) {
-    // If no user is found with that ID, stop and show a user-friendly message.
-    $profile_found = false;
-} else {
-    // Fetch the user's data into an associative array.
-    $user = $result->fetch_assoc();
-    $profile_found = true;
-}
-$stmt->close();
-$conn->close();
+    // --- 4. FETCH ONLY APPROVED PHOTOS FOR THE GALLERY ---
+    $photos = null;
+    if ($profile_found) {
+        $photos_stmt = $conn->prepare("SELECT image_path FROM tbl_user_photos WHERE user_id = ? AND approval_status = 1 ORDER BY is_profile_picture DESC, upload_date ASC");
+        $photos_stmt->bind_param("i", $user_id_to_view);
+        $photos_stmt->execute();
+        $photos = $photos_stmt->get_result();
+    }
 ?>
 <!doctype html>
 <html lang="en">
-
 <head>
     <title><?php echo $profile_found ? htmlspecialchars($user['user_name']) . ' | Profile Details' : 'Profile Not Found'; ?></title>
-    <!--== META TAGS ==-->
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <meta name="theme-color" content="#f6af04">
-    <meta name="description" content="">
-    <meta name="keyword" content="">
-    <!--== FAV ICON(BROWSER TAB ICON) ==-->
-    <link rel="shortcut icon" href="images/fav.ico" type="image/x-icon">
-    <!--== CSS FILES ==-->
-    <link rel="stylesheet" href="css/bootstrap.css">
-    <link rel="stylesheet" href="css/font-awesome.min.css">
-    <link rel="stylesheet" href="css/animate.min.css">
-    <link rel="stylesheet" href="css/style.css">
-
-    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
-    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
-    <!--[if lt IE 9]>
-      <script src="js/html5shiv.min.js"></script>
-      <script src="js/respond.min.js"></script>
-    <![endif]-->
+    <!-- Your standard META and CSS links -->
+    <link rel="stylesheet" href="css/bootstrap.css"><link rel="stylesheet" href="css/font-awesome.min.css"><link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bs5-lightbox/1.8.3/bs5-lightbox.min.css">
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 1rem; }
+        .gallery-grid img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; cursor: pointer; transition: transform 0.2s; }
+        .gallery-grid img:hover { transform: scale(1.05); } .details-list dt { font-weight: 600; }
+        .main-profile-img { width: 100%; height: auto; max-height: 500px; object-fit: cover; border-radius: 8px; }
+    </style>
 </head>
-
 <body>
-    <!-- PRELOADER -->
-    <div id="preloader">
-        <div class="plod">
-            <span class="lod1"><img src="images/loder/1.png" alt="" loading="lazy"></span>
-            <span class="lod2"><img src="images/loder/2.png" alt="" loading="lazy"></span>
-            <span class="lod3"><img src="images/loder/3.png" alt="" loading="lazy"></span>
-        </div>
-    </div>
-    <!-- ... (rest of your header, menu, etc. can remain the same) ... -->
-
-    <!-- Your Header and Menu HTML can go here -->
-    
-    <!-- PROFILE SECTION -->
-    <section>
+    <?php include "inc/navbar.php"; ?>
+    <div class="container my-4 my-md-5">
         <?php if ($profile_found): ?>
-        <div class="profi-pg profi-ban">
-            <div class="">
-                <div class="">
-                    <div class="profile">
-                        <div class="pg-pro-big-im">
-                            <div class="s1">
-                                <!-- DYNAMIC IMAGE -->
-                                <img src="./upload/<?php echo htmlspecialchars($user['user_img']); ?>" loading="lazy" class="pro" alt="<?php echo htmlspecialchars($user['user_name']); ?>">
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card sticky-top" style="top: 80px;">
+                    <img src="upload/<?php echo !empty($user['user_img']) ? htmlspecialchars($user['user_img']) : 'default-profile.png'; ?>" class="main-profile-img" alt="Profile photo">
+                    <div class="card-body text-center">
+                        <h4 class="card-title"><?php echo htmlspecialchars($user['user_name']); ?></h4>
+                        <p class="card-text text-muted"><?php echo htmlspecialchars($user['user_age']); ?> Years, <?php echo htmlspecialchars($user['user_jobType'] ?? 'N/A'); ?></p>
+                        <p class="card-text"><?php echo htmlspecialchars($user['user_city'] . ', ' . $user['user_country']); ?></p>
+                        <?php
+                            // --- ** UPDATED BUTTON LOGIC ** ---
+                            if ($viewer['user_id'] != $user['user_id']) {
+                                // Check if the VIEWING user has a premium plan
+                                $is_premium = false;
+                                if (!empty($viewer['plan_type']) && $viewer['plan_type'] != 'Free' && !empty($viewer['plan_expiry_date'])) {
+                                    if (new DateTime() <= new DateTime($viewer['plan_expiry_date'])) { $is_premium = true; }
+                                }
+                                
+                                // Sending interest is ALWAYS free.
+                                $interest_link = "user-interests.php?send_interest=" . $user['user_id'];
+                                $interest_text = "Send Interest";
+
+                                // Chatting is a PREMIUM feature.
+                                $chat_link = $is_premium ? "open-chat.php?receiver_id=" . $user['user_id'] : "plans.php";
+                                $chat_text = $is_premium ? "Chat Now" : "Upgrade to Chat";
+                        ?>
+                            <div class="d-grid gap-2">
+                                <a href="<?php echo $chat_link; ?>" class="btn btn-secondary"><i class="fa fa-comments"></i> <?php echo $chat_text; ?></a>
+                                
+                                <!-- This button is now always functional and always uses the confirmation pop-up -->
+                                <a href="<?php echo $interest_link; ?>" 
+                                   class="btn btn-primary confirm-action-btn"
+                                   data-title="Send Interest?"
+                                   data-text="Are you sure you want to send an interest to <?php echo htmlspecialchars(addslashes($user['user_name'])); ?>?"
+                                   data-confirm-text="Yes, send interest!">
+                                   <i class="fa fa-heart"></i> <?php echo $interest_text; ?>
+                                </a>
                             </div>
-                            <div class="s3">
-                                <a href="#!" class="cta fol cta-chat">Chat now</a>
-                                <span class="cta cta-sendint" data-toggle="modal" data-target="#sendInter">Send interest</span>
-                            </div>
+                        <?php } ?>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header"><h5>About <?php echo htmlspecialchars(explode(' ', $user['user_name'])[0]); ?></h5></div>
+                    <div class="card-body"><p>I am a <?php echo htmlspecialchars($user['user_age']); ?>-year-old <?php echo htmlspecialchars($user['user_maritalstatus']); ?> <?php echo htmlspecialchars($user['user_gender']); ?> from <?php echo htmlspecialchars($user['user_city']); ?>. Currently, I work as a <?php echo htmlspecialchars($user['user_jobType']); ?>. My hobbies include <?php echo htmlspecialchars($user['user_hobbies']); ?>.</p></div>
+                </div>
+                <div class="card mb-4">
+                    <div class="card-header"><h5>Photo Gallery</h5></div>
+                    <div class="card-body">
+                        <div class="gallery-grid">
+                            <?php if ($photos && $photos->num_rows > 0): while ($photo = $photos->fetch_assoc()): ?>
+                                <a href="upload/<?php echo htmlspecialchars($photo['image_path']); ?>" data-toggle="lightbox" data-gallery="profile-gallery">
+                                    <img src="upload/<?php echo htmlspecialchars($photo['image_path']); ?>" class="img-fluid" alt="Gallery photo">
+                                </a>
+                            <?php endwhile; else: ?>
+                                <p class="text-muted">This user has no approved photos in their gallery.</p>
+                            <?php endif; ?>
                         </div>
                     </div>
-                    <div class="profi-pg profi-bio">
-                        <div class="lhs">
-                            <div class="pro-pg-intro">
-                                <!-- DYNAMIC NAME -->
-                                <h1><?php echo htmlspecialchars($user['user_name']); ?></h1>
-                                <div class="pro-info-status">
-                                    <span class="stat-1">Profile ID: <?php echo htmlspecialchars($user['user_gen_id']); ?></span>
-                                    <span class="stat-2"><b>Available</b> online</span>
-                                </div>
-                                <ul>
-                                    <!-- DYNAMIC BASIC INFO -->
-                                    <li><div><img src="images/icon/pro-city.png" loading="lazy" alt=""><span>City: <strong><?php echo htmlspecialchars($user['user_city']); ?></strong></span></div></li>
-                                    <li><div><img src="images/icon/pro-age.png" loading="lazy" alt=""><span>Age: <strong><?php echo htmlspecialchars($user['user_age']); ?></strong></span></div></li>
-                                    <li><div><img src="images/icon/pro-height.png" loading="lazy" alt=""><span>Height: <strong><?php echo htmlspecialchars($user['user_height']); ?></strong></span></div></li>
-                                    <li><div><img src="images/icon/pro-job.png" loading="lazy" alt=""><span>Job: <strong><?php echo htmlspecialchars($user['user_jobType']); ?></strong></span></div></li>
-                                </ul>
-                            </div>
-                            
-                            <!-- DYNAMIC ABOUT SECTION -->
-                            <div class="pr-bio-c pr-bio-abo">
-                                <h3>About <?php echo htmlspecialchars(explode(' ', $user['user_name'])[0]); // Show first name ?></h3>
-                                <p><?php echo nl2br(htmlspecialchars($user['user_address'])); // Using address as 'About Me', nl2br converts newlines to <br> ?></p>
-                            </div>
-                            
-                            <!-- DYNAMIC PHOTO GALLERY (Shows the main photo) -->
-                            <div class="pr-bio-c pr-bio-gal" id="gallery">
-                                <h3>Photo gallery</h3>
-                                <div id="image-gallery">
-                                    <div class="pro-gal-imag">
-                                        <div class="img-wrapper">
-                                            <a href="admin/upload/<?php echo htmlspecialchars($user['user_img']); ?>"><img src="admin/upload/<?php echo htmlspecialchars($user['user_img']); ?>" class="img-responsive" alt=""></a>
-                                            <div class="img-overlay"><i class="fa fa-arrows-alt" aria-hidden="true"></i></div>
-                                        </div>
-                                    </div>
-                                    <!-- Add more photos here if you have a separate photo table -->
-                                </div>
-                            </div>
-                            
-                            <!-- DYNAMIC PERSONAL INFORMATION -->
-                            <div class="pr-bio-c pr-bio-info">
-                                <h3>Personal Information</h3>
-                                <ul>
-                                    <li><b>Name:</b> <?php echo htmlspecialchars($user['user_name']); ?></li>
-                                    <li><b>Father's Name:</b> <?php echo htmlspecialchars($user['user_fatherName']); ?></li>
-                                    <li><b>Date of Birth:</b> <?php echo date('d M Y', strtotime($user['user_dob'])); ?></li>
-                                    <li><b>Marital Status:</b> <?php echo htmlspecialchars($user['user_maritalstatus']); ?></li>
-                                    <li><b>Religion / Caste:</b> <?php echo htmlspecialchars($user['user_religion']); ?> / <?php echo htmlspecialchars($user['user_namecast']); ?></li>
-                                    <li><b>Weight:</b> <?php echo htmlspecialchars($user['user_weight']); ?></li>
-                                    <li><b>Disability:</b> <?php echo htmlspecialchars($user['user_disability']); ?></li>
-                                </ul>
-                            </div>
-
-                             <!-- DYNAMIC PROFESSIONAL & EDUCATION INFORMATION -->
-                            <div class="pr-bio-c pr-bio-info">
-                                <h3>Education & Professional Details</h3>
-                                <ul>
-                                    <li><b>Highest Degree:</b> <?php echo htmlspecialchars($user['user_degree']); ?></li>
-                                    <li><b>College / University:</b> <?php echo htmlspecialchars($user['user_collage']); ?></li>
-                                    <li><b>Profession:</b> <?php echo htmlspecialchars($user['user_jobType']); ?></li>
-                                    <li><b>Company:</b> <?php echo htmlspecialchars($user['user_companyName']); ?></li>
-                                    <li><b>Salary:</b> <?php echo htmlspecialchars($user['user_salary']); ?></li>
-                                </ul>
-                            </div>
-                            
-                            <!-- DYNAMIC HOBBIES -->
-                            <div class="pr-bio-c pr-bio-hob">
-                                <h3>Hobbies & Interests</h3>
-                                <ul>
-                                    <?php
-                                        // Explode the comma-separated hobbies string into an array
-                                        $hobbies = explode(',', $user['user_hobbies']);
-                                        foreach ($hobbies as $hobby) {
-                                            // Trim whitespace and display each hobby
-                                            echo '<li><span>' . htmlspecialchars(trim($hobby)) . '</span></li>';
-                                        }
-                                    ?>
-                                </ul>
-                            </div>
-
-                        </div>
-
-                        <!-- Right Hand Side (RHS) -->
-                        <div class="rhs">
-                            <!-- HELP BOX -->
-                            <div class="prof-rhs-help">
-                                <div class="inn">
-                                    <h3>Tell us your Needs</h3>
-                                    <p>Tell us what kind of service or experts you are looking for.</p>
-                                    <a href="sign-up.html">Register for free</a>
-                                </div>
-                            </div>
-                            <!-- END HELP BOX -->
-                            <!-- (The "Related profiles" section can remain static for now) -->
-                            <div class="slid-inn pr-bio-c wedd-rel-pro">
-                               <h3>Related profiles</h3>
-                                <ul class="slider3">
-                                    <li>
-                                        <div class="wedd-rel-box">
-                                            <div class="wedd-rel-img"><img src="images/profiles/1.jpg" alt=""><span class="badge badge-success">21 Years old</span></div>
-                                            <div class="wedd-rel-con"><h5>Christine</h5><span>City: <b>New York City</b></span></div>
-                                            <a href="profile-details.html" class="fclick"></a>
-                                        </div>
-                                    </li>
-                                     <!-- Add more static related profiles as needed -->
-                                </ul>
-                            </div>
-                        </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h5>Complete Profile Details</h5></div>
+                    <div class="card-body">
+                        <dl class="row details-list">
+                            <dt class="col-sm-4">Age / Height</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_age']); ?> Years / <?php echo htmlspecialchars($user['user_height']); ?></dd>
+                            <dt class="col-sm-4">Marital Status</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_maritalstatus']); ?></dd>
+                            <?php if (isset($user['user_maritalstatus']) && ($user['user_maritalstatus'] == 'Divorced' || $user['user_maritalstatus'] == 'Widowed')): ?>
+                                <dt class="col-sm-4">Has Children</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_has_kids'] ?? 'Not specified'); ?></dd>
+                            <?php endif; ?>
+                            <dt class="col-sm-4">Religion / Caste</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_religion']); ?> / <?php echo htmlspecialchars($user['user_namecast']); ?></dd>
+                            <dt class="col-sm-4">Location</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_city'] . ', ' . $user['user_state'] . ', ' . $user['user_country']); ?></dd>
+                            <dt class="col-sm-4">Highest Education</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_degree']); ?></dd>
+                            <dt class="col-sm-4">Profession</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_jobType']); ?></dd>
+                            <dt class="col-sm-4">Annual Income</dt><dd class="col-sm-8"><?php echo htmlspecialchars($user['user_salary']); ?></dd>
+                        </dl>
                     </div>
                 </div>
             </div>
         </div>
         <?php else: ?>
-            <!-- This section is shown if the profile was not found -->
-            <div class="container" style="padding: 100px 15px; text-align: center;">
-                <div class="alert alert-danger">
-                    <h2>Profile Not Found</h2>
-                    <p>Sorry, the profile you are looking for does not exist or is no longer available.</p>
-                    <a href="index.php" class="btn btn-primary">Go to Homepage</a>
+            <div class="text-center py-5">
+                <div class="alert alert-danger" role="alert">
+                    <h2 class="alert-heading">Profile Not Found</h2>
+                    <p>Sorry, the profile you are looking for does not exist, is awaiting approval, or is no longer available.</p><hr>
+                    <a href="see-other-profile.php" class="btn btn-primary">Browse Other Profiles</a>
                 </div>
             </div>
         <?php endif; ?>
-    </section>
-
-    <!-- ... (rest of your page like modals, footer, etc.) ... -->
-    <!-- Your Modals, Footer, and JS scripts can go here -->
-
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="js/jquery.min.js"></script>
-    <script src="js/popper.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
-    <script src="js/select-opt.js"></script>
-    <script src="js/slick.js"></script>
-    <script src="js/gallery.js"></script>
-    <script src="js/custom.js"></script>
+    </div>
+    <script src="js/jquery.min.js"></script><script src="js/bootstrap.min.js"></script><script src="js/custom.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bs5-lightbox/1.8.3/index.bundle.min.js"></script>
 </body>
-
 </html>

@@ -1,87 +1,87 @@
+<?php
+    // The session must be started on any page that uses this navbar
+    // to check the login state.
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    include "db/conn.php"; // Include the database connection
+?>
 
-    <!-- MENU POPUP -->
-    <div class="menu-pop menu-pop1">
-        <!--<span class="menu-pop-clo"><i class="fa fa-times" aria-hidden="true"></i></span>-->
-        <div class="inn">
-            <img src="inc/logo.png" alt="" loading="lazy" class="logo-brand-only">
-            <p><strong>Best Wedding Matrimony</strong> platform to find your perfect life partner. We connect individuals through trusted profiles and meaningful matches. Join thousands who’ve found love through our verified and secure services.</p>
-            <ul class="menu-pop-info">
-                <li><a href="tel:919727410836"><i class="fa fa-phone" aria-hidden="true"></i>+91 97274 10836</a></li>
-                <li><a href="mailto:info@example.com"><i class="fa fa-envelope-o" aria-hidden="true"></i>info@jeevansathimela.com</a></li>
-                <li><a href="javascript:void(0)"><i class="fa fa-map-marker" aria-hidden="true"></i>13-14, Bakor Nagar, New VIP Road, Vadodara, Gujarat - 390019</a></li>
-            </ul>
-        </div>
-    </div>
-    <!-- END -->
+<!-- HEADER & MENU -->
+<div class="hom-top">
+    <div class="container">
+        <div class="row">
+            <div class="hom-nav">
+                <!-- LOGO -->
+                <div class="logo">
+                    <a href="index.php" class="logo-brand">
+                        <img src="inc/logo.png" alt="Logo" loading="lazy" class="ic-logo">
+                    </a>
+                </div>
 
-    <!-- MAIN MENU -->
-    <div class="hom-top">
-        <div class="container">
-            <div class="row">
-                <div class="hom-nav">
-                    <!-- LOGO -->
-                    <div class="logo">
-                        <!--<span class="menu desk-menu">-->
-                        <!--    <i></i><i></i><i></i>-->
-                        <!--</span>-->
-                        <a href="/index.php" class="logo-brand"><img src="inc/logo.png" alt="" loading="lazy"
-                                class="ic-logo"></a>
-                    </div>
+                <!-- TOP MENU -->
+                <div class="bl">
+                    <ul>
+                        <li><a href="index.php">Home</a></li>
+                        <li><a href="see-other-profile.php">Browse Profiles</a></li>
+                        <li><a href="plans.php">Plans</a></li>
+                        <li><a href="contact.php">Contact</a></li>
 
-                    <!-- EXPLORE MENU -->
-                    <center>
-                        <div class="bl">
-                        <ul>
-                            <li><a href="index.php">Home</a></li>
+                        <?php if (isset($_SESSION['username']) && isset($_SESSION['password'])): ?>
+                            <!-- Show DASHBOARD MENU if user is LOGGED IN -->
+                            <li class="smenu-pare">
+                                <span class="smenu">Dashboard</span>
+                                <div class="smenu-open smenu-single">
+                                    <ul>
+                                        <li><a href="user-dashboard.php">My Dashboard</a></li>
+                                        <li><a href="user-profile.php">My Profile</a></li>
+                                        <li><a href="user-profile-edit.php">Edit Profile</a></li>
+                                        <li><a href="user-interests.php">My Interests</a></li>
+                                        <li><a href="user-chat.php">My Chats</a></li>
+                                        <li><a href="user-setting.php">Settings</a></li>
+                                        <li><a href="logout.php">Log Out</a></li>
+                                    </ul>
+                                </div>
+                            </li>
+                        <?php else: ?>
+                            <!-- Show REGISTER button if user is LOGGED OUT -->
                             <li><a href="client_sign_up.php">Register</a></li>
-                            <li><a href="login.php">Login</a></li>
-                            <li><a href="contact.php">Contact Us</a></li>
-                        </ul>
-                    </div>
-                    </center>
+                        <?php endif; ?>
+                    </ul>
+                </div>
 
-                    <!--MOBILE MENU-->
-                    <div class="mob-menu">
-                        <div class="mob-me-ic">
-                            <span class="mobile-exprt" data-mob="dashbord">
-                                <img src="images/icon/users.svg" alt="">
-                            </span>
-                            <span class="mobile-menu" data-mob="mobile">
-                                <img src="images/icon/menu.svg" alt="">
-                            </span>
+                <!-- USER PROFILE AREA (Right Side) -->
+                <div class="al">
+                    <?php if (isset($_SESSION['username']) && isset($_SESSION['password'])): ?>
+                        <?php
+                            // Fetch user data to display their profile picture and name
+                            $userN_nav = $_SESSION['username'];
+                            $psw_nav = $_SESSION['password'];
+                            $nav_stmt = $conn->prepare("SELECT user_name, user_img FROM tbl_user WHERE user_phone = ? AND user_pass = ?");
+                            $nav_stmt->bind_param("ss", $userN_nav, $psw_nav);
+                            $nav_stmt->execute();
+                            $nav_result = $nav_stmt->get_result();
+                            if ($nav_result->num_rows > 0) {
+                                $nav_user = $nav_result->fetch_assoc();
+                            }
+                        ?>
+                        <!-- If LOGGED IN, show their profile info -->
+                        <div class="head-pro">
+                            <a href="user-dashboard.php">
+                                <img src="upload/<?php echo !empty($nav_user['user_img']) ? htmlspecialchars($nav_user['user_img']) : 'default-profile.png'; ?>" alt="My Profile" loading="lazy">
+                                <b>My account</b><br>
+                                <h4><?php echo htmlspecialchars($nav_user['user_name']); ?></h4>
+                            </a>
                         </div>
-                    </div>
-                    <!--END MOBILE MENU-->
+                    <?php else: ?>
+                        <!-- If LOGGED OUT, show a Login button -->
+                         <div class="head-pro">
+                            <a href="login.php" class="btn btn-primary">Login</a>
+                         </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
-    <!-- END -->
-
-    <!-- EXPLORE MENU POPUP -->
-    <div class="mob-me-all mobile_menu">
-        <div class="mob-me-clo"><img src="images/icon/close.svg" alt=""></div>
-        <div class="mv-bus">
-            <h4><i class="fa fa-globe" aria-hidden="true"></i> Quick Links</h4>
-            <ul>
-                <li><a href="index.php">Home</a></li>
-                <li><a href="client_sign_up.php">Register</a></li>
-                <li><a href="login.php">Login</a></li>
-                <li><a href="contact.php">Contact</a></li>
-            </ul>
-            
-        </div>
-    </div>
-    <!-- END MOBILE MENU POPUP -->
-
-    <!-- MOBILE USER PROFILE MENU POPUP -->
-    <div class="mob-me-all dashbord_menu">
-        <div class="mob-me-clo"><img src="images/icon/close.svg" alt=""></div>
-        <div class="mv-bus">
-            <ul>
-                <li><a href="login.php">Login</a></li>
-                <li><a href="client_sign_up.php">Sign-up</a></li>
-            </ul>
-        </div>
-    </div>
-    <!-- END USER PROFILE MENU POPUP -->
+</div>
+<!-- END HEADER & MENU -->

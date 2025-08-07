@@ -23,7 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Store user information in the session
         $_SESSION['username'] = $fetch_admin['ad_email'];
         // Storing the password in the session is not recommended for security reasons.
-        // $_SESSION['pass'] = $fetch_admin['ad_pass']; 
+        $_SESSION['pass'] = $fetch_admin['ad_pass']; 
 
         // Corrected redirect to the admin dashboard
         header("Location: ../index.php");

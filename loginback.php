@@ -16,7 +16,7 @@ session_start();
                 echo "<script>window.location.href='user-dashboard.php'</script>";
             
         }else{
-            echo "<script>alert('Not User Found !!!')</script>";
+                echo "<script>window.location.href='login.php'</script>";
         }
     }
 ?>

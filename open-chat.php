@@ -1,241 +1,123 @@
 <?php
     session_start();
     include "db/conn.php";
-    error_reporting(0);
-?>
-<?php 
 
-?>
-<?php 
+    // --- 1. AUTHENTICATION & INITIALIZATION ---
+    if (!isset($_SESSION['username']) || !isset($_SESSION['password'])) {
+        echo "<script>alert('Please login to continue.'); window.location.href='login.php';</script>";
+        exit();
+    }
 
-?>
-<?php 
-
-?>
-<?php
     $userN = $_SESSION['username'];
     $psw = $_SESSION['password'];
-    if($userN == true && $psw == true){
-        $user = mysqli_query($conn,"select * from tbl_user where user_phone = '$userN' and user_pass = '$psw'");
-        $fe = mysqli_fetch_array($user);
-        $userID = $fe['user_id'];
-        if(isset($_POST['chat_send'])){
-            $senderid = $_POST['senderid'];
-            $receiverid = $_POST['receiverid'];
-            $chat_message = $_POST['chat_message'];
-            $sqls=mysqli_query($conn,"INSERT INTO tbl_chat(chat_senderID, chat_receiverID, chat_message) values('$senderid','$receiverid','$chat_message')");
-            if($sqls){
-                echo "<script>alert('Send Chat')</script>";
-                echo "<script>window.location.href='see-other-profile.php'</script>";
+
+    $user_query = mysqli_query($conn, "SELECT * FROM tbl_user WHERE user_phone = '$userN' AND user_pass = '$psw'");
+    
+    if (!$user_query || mysqli_num_rows($user_query) == 0) {
+        echo "<script>alert('Session error. Please login again.'); window.location.href='login.php';</script>";
+        exit();
+    }
+    
+    $loggedInUser = mysqli_fetch_assoc($user_query);
+    $loggedInUserID = $loggedInUser['user_id'];
+    $receiverID = isset($_GET['receiver_id']) ? (int)$_GET['receiver_id'] : 0;
+
+    if ($receiverID === 0 || $receiverID === $loggedInUserID) {
+        die("Invalid chat session.");
+    }
+
+    // --- 2. SECURITY CHECK: Verify that an ACCEPTED interest exists ---
+    $auth_stmt = $conn->prepare("SELECT chat_id FROM tbl_chat WHERE interest_status = 1 AND ((chat_senderID = ? AND chat_receiverID = ?) OR (chat_senderID = ? AND chat_receiverID = ?))");
+    $auth_stmt->bind_param("iiii", $loggedInUserID, $receiverID, $receiverID, $loggedInUserID);
+    $auth_stmt->execute();
+    $auth_result = $auth_stmt->get_result();
+
+    if ($auth_result->num_rows === 0) {
+        // This is the security block that prevents unauthorized access.
+        echo "<script>alert('You are not authorized to chat with this user. An interest must be mutually accepted first.'); window.location.href='user-chat.php';</script>";
+        exit();
+    }
+
+    // --- 3. HANDLE SENDING A NEW MESSAGE ---
+    if (isset($_POST['send_message'])) {
+        $message = trim($_POST['message']);
+        if (!empty($message)) {
+            // We use status '9' to indicate a chat message.
+            $insert_stmt = $conn->prepare("INSERT INTO tbl_chat (chat_senderID, chat_receiverID, chat_message, interest_status) VALUES (?, ?, ?, 9)");
+            $insert_stmt->bind_param("iis", $loggedInUserID, $receiverID, $message);
+            if ($insert_stmt->execute()) {
+                // Redirect to the same page to show the new message and prevent re-submission on refresh
+                header("Location: open-chat.php?receiver_id=" . $receiverID);
+                exit();
             }
         }
+    }
 
+    // --- 4. FETCH DATA FOR DISPLAY ---
+    $receiver_query = mysqli_query($conn, "SELECT user_name, user_img FROM tbl_user WHERE user_id = '$receiverID'");
+    $receiverUser = mysqli_fetch_assoc($receiver_query);
 
+    // Fetch the conversation: status 1 (the "accepted" message) and 9 (all chat messages)
+    $messages_query = mysqli_query($conn, "SELECT * FROM tbl_chat WHERE ((chat_senderID = '$loggedInUserID' AND chat_receiverID = '$receiverID') OR (chat_senderID = '$receiverID' AND chat_receiverID = '$loggedInUserID')) AND interest_status IN (1, 9) ORDER BY chat_date ASC");
 
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Chat App</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-	<style type="text/css">
-
-		#container{
-			border: 1px solid white;
-			height: 540px;
-			width: 620px;
-			margin-left: 350px;
-			background-color: white;
-			box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
-		}
-		#chat{
-			border: 1px solid white;
-			width: 600px;
-			height: 350px;
-			margin-left: 0px;
-			max-height: 350px;
-			overflow: auto; 
-			padding: 10px;
-		}
-		#message{
-			margin-left: 20px;
-			margin-top: 10px;
-		}
-		#message_box{
-			width: 450px;
-			height: 60px;
-			background-color: #E4E6EB;
-			border-radius: 20px;
-			border: 1px solid #E4E6EB;
-			padding-left: 20px;
-			float: left;
-		}
-		#send{
-			width: 100px;
-			height: 60px;
-			border-radius: 20px;
-			margin-left: 10px;
-			border: 1px solid #E4E6EB;
-			background-color: #E4E6EB;
-			
-		}
-		#send:hover{
-			background-color: blue;
-			cursor: pointer;
-		}
-		#chat_box_message1{
-			border: 1px solid #0099FF;
-			background-color: #0099FF;
-			/*max-width: 120px;*/
-			max-width: 30%;
-			margin-left: 350px;
-            overflow-y: auto;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 10px;
-            height: auto;
-            /*box-sizing: border-box;
-            width: auto;*/
-            color: white;
-            margin-top: 20px;
-
-		}
-		#chat_box_message2{
-			border: 1px solid #E4E6EB;
-			background-color: #E4E6EB;
-			max-width: 30%;
-            overflow-y: auto;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 10px;
-            margin-left: 25px;
-            height: auto;
-            float: ;
-            margin-top: 20px;
-
-		}
-		img{
-			width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            overflow: hidden;
-            float: left;
-            margin-left: 10px;
-            margin-top: 9px;
-		}
-		#logout{
-			float: left;
-			font-weight: bold;
-			text-decoration: none;
-			float: right;
-			margin-right: 30px;
-			margin-top: 24px;
-
-		}
-		#logout:hover{
-			color: red;
-		}
-		#send_icon:hover{
-			cursor: pointer;
-		}
-	</style>
+	<title>Chat with <?php echo htmlspecialchars($receiverUser['user_name']); ?></title>
+    <!-- Standard CSS -->
+    <link rel="stylesheet" href="css/bootstrap.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <!-- Custom Chat Styles -->
+    <style>
+        body { background-color: #f0f2f5; font-family: Arial, sans-serif; }
+        .chat-container { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 85vh; }
+        .chat-header { padding: 15px; border-bottom: 1px solid #ddd; display: flex; align-items: center; background-color: #f7f7f7; }
+        .chat-header .back-btn { font-size: 1.2rem; color: #333; }
+        .chat-header img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; }
+        .chat-header h5 { margin: 0; font-weight: 600; }
+        .chat-body { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .chat-message { max-width: 70%; padding: 10px 15px; border-radius: 18px; margin-bottom: 10px; line-height: 1.4; word-wrap: break-word; }
+        .message-sent { background-color: #0084ff; color: white; align-self: flex-end; }
+        .message-received { background-color: #e4e6eb; color: #050505; align-self: flex-start; }
+        .system-message { text-align: center; color: #888; font-size: 0.85rem; margin: 10px 0; }
+        .chat-footer { padding: 15px; border-top: 1px solid #ddd; background-color: #f7f7f7; }
+        .chat-footer form { display: flex; }
+        .chat-footer input { flex: 1; border-radius: 18px; border: 1px solid #ccc; padding: 10px 15px; }
+        .chat-footer button { margin-left: 10px; border-radius: 50%; width: 45px; height: 45px; }
+    </style>
 </head>
 <body>
-    <?php
-    $uuid = $_GET['id'];
-        $usefi = mysqli_query($conn,"select * from tbl_user where user_id = '$uuid'");
-        $uufe = mysqli_fetch_array($usefi);
-    ?>
-	<div id="container">
-		<div id="" style=""> 
-			<img src="upload/<?php echo $uufe['user_img'] ?>">
-			 <label style="float: left; margin-left: 10px; margin-top: 27px; font-weight: bold;"><?php echo $uufe['user_name']; ?></label> <a id="logout" href="logout.php">Logout</a><br><br><br>
-			<hr>
-		 </div>
-		 <div id="chat">
-		 	
-		 		<?php 
-		 			$sql1="SELECT chat_senderID, chat_receiverID, chat_message, 
-           DATE_FORMAT(chat_date, '%M %e at %l:%i %p') AS time2 
-    FROM tbl_chat 
-    WHERE 
-        (chat_senderID = '$userID' AND chat_receiverID = '$uuid') 
-        OR 
-        (chat_senderID = '$uuid' AND chat_receiverID = '$userID')
-    ORDER BY chat_date ASC";
-		 			$query1=mysqli_query($conn,$sql1);
-
-		 			if (mysqli_num_rows($query1) > 0){
-		 				while ($row=mysqli_fetch_array($query1)) {
-		 				if ($row['chat_receiverID'] == $uuid) {
-		 					?>
-		 				<div id="chat_box_main1">
-
-		 					<div id="chat_box_message1">
-		 					 <?php 
-		 						echo $row['chat_message'];
-		 					 ?>
-		 					</div>
-		 					<div style="margin-left: 400px;">
-		 						<?php
-		 						 echo $row['time2'];
-		 						  
-		 						?>
-		 					</div>
-		 			   </div>
- 
-		 				<?php 
-		 				}else{
-		 					?>
-		 					<div id="chat_box_main2">
-		 					<!-- <img style="margin-right: 10px;" src="upload/<?php echo $row['user_img'] ?>">  -->
-		 					<div id="chat_box_message2">
-		 					 <?php 
-		 						echo $row['chat_message'];
-		 					  ?>
-		 					</div>
-		 					  <div style="margin-left: 120px; margin-top: ;">
-		 						<?php
-		 						 echo $row['time2'];
-		 						?>
-		 					</div>
-		 			       </div>
-
-		 					<?php 
-		 				}
-		 			}
-		 		}
-		 		?>
-		 	
-		 </div>
-		 <div id="message">
-		 	<form method="POST">
-		 		<input id="message_box" type="text" name="message" placeholder="Write message" required>
-		 		<input type="text" name="name" value="<?php echo $uuid ?>" hidden>
-		 		<input type="text" name="sender" value="<?php echo $userID ?>" hidden>
-		 	    <!--input id="send" type="submit" name="send" value="Send"-->
-		 	    <button  id="send_icon" type="submit" name="send" style="background: none;border: none;">
-		 	    	<img style="width: 70px;height: 57px; float: left; margin-top: 0px;" src="send.png">
-		 	    </button>	
-		 	</form>
-		 	<?php
-if (isset($_POST['send'])) {
-	$name=$_POST['name'];
-	$sender=$_POST['sender'];
-	$message=$_POST['message'];
-
-	$sql="INSERT INTO tbl_chat(chat_senderID, chat_receiverID, chat_message) values('$sender','$name','$message')";
-	$query=mysqli_query($conn,$sql);
-
-
- // Ensure that no further code is executed after the header
-}
-            ?>
-		 </div>
-	</div>
+    <div class="chat-container">
+        <div class="chat-header">
+            <a href="user-chat.php" class="back-btn me-3"><i class="fa fa-arrow-left"></i></a>
+            <img src="upload/<?php echo !empty($receiverUser['user_img']) ? htmlspecialchars($receiverUser['user_img']) : 'default-profile.png'; ?>" alt="Profile">
+            <h5><?php echo htmlspecialchars($receiverUser['user_name']); ?></h5>
+        </div>
+        <div class="chat-body" id="chat-body">
+            <?php while($msg = mysqli_fetch_assoc($messages_query)): ?>
+                <?php if($msg['interest_status'] == 1): ?>
+                    <div class="system-message">Interest was accepted. You can now chat.</div>
+                <?php else: ?>
+                    <div class="chat-message <?php echo ($msg['chat_senderID'] == $loggedInUserID) ? 'message-sent' : 'message-received'; ?>">
+                        <?php echo nl2br(htmlspecialchars($msg['chat_message'])); ?>
+                    </div>
+                <?php endif; ?>
+            <?php endwhile; ?>
+        </div>
+        <div class="chat-footer">
+            <form method="POST" action="">
+                <input type="text" name="message" placeholder="Type a message..." autocomplete="off" required>
+                <button type="submit" name="send_message" class="btn btn-primary"><i class="fa fa-paper-plane"></i></button>
+            </form>
+        </div>
+    </div>
+    <!-- Script to automatically scroll to the most recent message -->
+    <script>
+        const chatBody = document.getElementById('chat-body');
+        chatBody.scrollTop = chatBody.scrollHeight;
+    </script>
 </body>
 </html>
-<?php } ?>
