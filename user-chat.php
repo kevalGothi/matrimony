@@ -90,7 +90,7 @@
                                                 <a href="open-chat.php?receiver_id=<?php echo $row['user_id']; ?>" style="color: inherit; text-decoration: none;">
                                                     <li style="cursor: pointer;">
                                                         <div class="db-int-pro-1"> 
-                                                            <img src="upload/<?php echo !empty($row['user_img']) ? htmlspecialchars($row['user_img']) : 'default-profile.png'; ?>" alt="Profile Image">
+                                                            <img style="object-fit: contain;" src="upload/<?php echo !empty($row['user_img']) ? htmlspecialchars($row['user_img']) : 'default-profile.png'; ?>" alt="Profile Image">
                                                         </div>
                                                         <div class="db-int-pro-2">
                                                             <h5><?php echo htmlspecialchars($row['user_name']); ?></h5>

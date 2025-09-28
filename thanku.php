@@ -18,8 +18,7 @@ if ($user_id > 0) {
                 $_SESSION['username'] = $user_data['user_phone'];
                 $_SESSION['password'] = $user_data['user_pass'];
             }
-            echo "<script>alert('Registration Fee Paid! Please complete your profile to submit for approval.');</script>";
-            echo "<script>window.location.href = 'user-profile-edit.php';</script>";
+            echo "<script>window.location.href = 'see-other-profile.php';</script>";
             exit();
         }
     } elseif ($payment_type === 'plan') {
@@ -34,7 +33,6 @@ if ($user_id > 0) {
             $stmt = $conn->prepare("UPDATE tbl_user SET plan_type = ?, plan_expiry_date = ? WHERE user_id = ?");
             $stmt->bind_param("ssi", $plan, $expiry_date, $user_id);
             if ($stmt->execute()) {
-                echo "<script>alert('Plan activated successfully! You now have premium access.');</script>";
                 echo "<script>window.location.href = 'user-dashboard.php';</script>";
                 exit();
             }

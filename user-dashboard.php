@@ -157,12 +157,7 @@
                                 <div class="col-md-12">
                                     <h4>Account Status</h4>
                                     <?php
-                                        // Profile Approval Status
-                                        if ($loggedInUser['user_status'] == '1') {
-                                            echo "<div class='alert alert-success'>Your profile is <strong>approved</strong> and visible to others.</div>";
-                                        } else {
-                                            echo "<div class='alert alert-warning'>Your profile is <strong>pending admin approval</strong> and is not yet visible.</div>";
-                                        }
+                                        
 
                                         // Subscription Plan Status
                                         $plan_status_message = '';

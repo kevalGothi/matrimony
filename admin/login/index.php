@@ -1,16 +1,22 @@
 <?php
 session_start();
 
+// If admin is already logged in, redirect them to the dashboard
+if (isset($_SESSION['admin_id'])) {
+    header("Location: ../index.php"); // Go up one level to the main admin folder
+    exit();
+}
+
 // Check if the form was submitted via POST
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
-    // Corrected path to the database connection file
+    // Path goes up two levels to reach the main project directory
     include "../../db/conn.php";
     
     $username = $_POST['username'];
     $pass = $_POST['pass'];
 
-    // --- SECURE DATABASE QUERY ---
+    // --- DATABASE QUERY (WITHOUT HASHING) ---
     $stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE ad_email = ? AND ad_pass = ?");
     $stmt->bind_param("ss", $username, $pass);
     $stmt->execute();
@@ -20,12 +26,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // --- SUCCESSFUL LOGIN ---
         $fetch_admin = $result->fetch_assoc();
         
-        // Store user information in the session
+        // Regenerate session ID for security
+        session_regenerate_id(true);
+        
+        // Store admin information in the session
+        $_SESSION['admin_id'] = $fetch_admin['ad_id'];
+        $_SESSION['admin_name'] = $fetch_admin['ad_name'];
         $_SESSION['username'] = $fetch_admin['ad_email'];
-        // Storing the password in the session is not recommended for security reasons.
-        $_SESSION['pass'] = $fetch_admin['ad_pass']; 
+        $_SESSION['password'] = $fetch_admin['ad_pass']; // Standardized to 'password'
 
-        // Corrected redirect to the admin dashboard
+        // Redirect to the admin dashboard (up one level)
         header("Location: ../index.php");
         exit(); 
     } else {
@@ -44,45 +54,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>Login Panel</title>
+	<title>Admin Login Panel</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-<!--===============================================================================================-->	
-	<link rel="icon" type="image/png" href="images/icons/favicon.ico"/>
-<!--===============================================================================================-->
 	<link rel="stylesheet" type="text/css" href="vendor/bootstrap/css/bootstrap.min.css">
-<!--===============================================================================================-->
 	<link rel="stylesheet" type="text/css" href="fonts/font-awesome-4.7.0/css/font-awesome.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="fonts/iconic/css/material-design-iconic-font.min.css">
-<!--===============================================================================================-->
 	<link rel="stylesheet" type="text/css" href="vendor/animate/animate.css">
-<!--===============================================================================================-->	
 	<link rel="stylesheet" type="text/css" href="vendor/css-hamburgers/hamburgers.min.css">
-<!--===============================================================================================-->
 	<link rel="stylesheet" type="text/css" href="vendor/animsition/css/animsition.min.css">
-<!--===============================================================================================-->
-	<link rel="stylesheet" type="text/css" href="vendor/select2/select2.min.css">
-<!--===============================================================================================-->	
-	<link rel="stylesheet" type="text/css" href="vendor/daterangepicker/daterangepicker.css">
-<!--===============================================================================================-->
 	<link rel="stylesheet" type="text/css" href="css/util.css">
 	<link rel="stylesheet" type="text/css" href="css/main.css">
-<!--===============================================================================================-->
 </head>
 <body>
 	
 	<div class="limiter">
 		<div class="container-login100" style="background-image: url('images/bg-01.jpg');">
 			<div class="wrap-login100">
-				<!-- Corrected form action to submit to itself -->
+				<!-- Form submits to itself -->
 				<form class="login100-form validate-form" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
 					<span class="login100-form-logo">
-						<img src="../user/assets/logo1.jpg" alt="">
+						<!-- Adjust image path if necessary -->
+						<!--<img src="../../user/assets/logo1.jpg" alt="Logo" style="border-radius: 50%;">-->
 					</span>
 
 					<span class="login100-form-title p-b-34 p-t-27">
-						Log in
+						Admin Log in
 					</span>
 
 					<div class="wrap-input100 validate-input" data-validate = "Enter username">
@@ -95,47 +91,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 						<span class="focus-input100" data-placeholder=""></span>
 					</div>
 
-					<div class="contact100-form-checkbox">
-						<input class="input-checkbox100" id="ckb1" type="checkbox" name="remember-me">
-						<label class="label-checkbox100" for="ckb1">
-							Remember me
-						</label>
-					</div>
-
 					<div class="container-login100-form-btn">
 						<button class="login100-form-btn">
 							Login
 						</button>
 					</div>
-
-					<div class="text-center p-t-90">
-						<a class="txt1" href="#">
-							Forgot Password?
-						</a>
-					</div>
 				</form>
 			</div>
 		</div>
 	</div>
-
-
-	<div id="dropDownSelect1"></div>
 	
-<!--===============================================================================================-->
 	<script src="vendor/jquery/jquery-3.2.1.min.js"></script>
-<!--===============================================================================================-->
 	<script src="vendor/animsition/js/animsition.min.js"></script>
-<!--===============================================================================================-->
 	<script src="vendor/bootstrap/js/popper.js"></script>
 	<script src="vendor/bootstrap/js/bootstrap.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/select2/select2.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/daterangepicker/moment.min.js"></script>
-	<script src="vendor/daterangepicker/daterangicker.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/countdowntime/countdowntime.js"></script>
-<!--===============================================================================================-->
 	<script src="js/main.js"></script>
 
 </body>

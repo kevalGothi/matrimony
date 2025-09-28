@@ -1,14 +1,16 @@
 <?php
 session_start();
+// The db connection path is now ../db/conn.php as it's in the parent folder
 include "../db/conn.php";
 
-// --- 1. Authentication (Using your established session variables) ---
-if (!isset($_SESSION['username']) || !isset($_SESSION['pass'])) {
+// --- 1. Authentication (Using standardized session variables) ---
+if (!isset($_SESSION['username']) || !isset($_SESSION['password'])) {
+    // Redirect down into the login folder
     header("Location: login/");
     exit();
 }
 $admin_email = $_SESSION['username'];
-$admin_pass = $_SESSION['pass']; // Note: Storing plain password in session is insecure for production.
+$admin_pass = $_SESSION['password']; // Standardized to 'password'
 
 $stmt = $conn->prepare("SELECT ad_id, ad_name FROM tbl_admin WHERE ad_email = ? AND ad_pass = ?");
 $stmt->bind_param("ss", $admin_email, $admin_pass);
@@ -17,7 +19,7 @@ $result = $stmt->get_result();
 
 if ($result->num_rows == 0) {
     session_destroy();
-    echo "<script>alert('Your session is invalid or your account no longer exists. Please log in again.'); window.location.href='login/';</script>";
+    echo "<script>alert('Your session is invalid. Please log in again.'); window.location.href='login/';</script>";
     exit();
 }
 $adminfetch = $result->fetch_assoc();
@@ -26,8 +28,8 @@ $stmt->close();
 
 // --- 2. Fetch All Necessary Data for the Dashboard ---
 
-// Fetch users with pending profile edits (has_pending_edits = 1)
-$pending_edits_res = $conn->query("SELECT user_id, user_name, user_phone FROM tbl_user WHERE has_pending_edits = 1 ORDER BY user_id DESC");
+// CORRECTED: Using 'has_pending_changes' to match the database
+$pending_edits_res = $conn->query("SELECT user_id, user_name, user_phone FROM tbl_user WHERE has_pending_changes = 1 ORDER BY user_id DESC");
 if (!$pending_edits_res) { die("Error fetching pending edits: " . $conn->error); }
 
 // Fetch users pending initial profile approval (status = 0)
@@ -58,14 +60,14 @@ include "inc/header.php";
 
             <!-- SECTION 1: Users with Pending Profile Edits -->
             <div class="card mb-4">
-                <div class="card-header"><h5 class="card-title text-warning">Action Required: Users with Pending Profile Edits</h5></div>
-                <div class="card-datatable table-responsive">
-                    <table class="table border-top">
+                <div class="card-header"><h5 class="card-title text-warning"><i class="fa fa-pencil-square-o"></i> Action Required: Users with Pending Profile Edits</h5></div>
+                <div class="table-responsive text-nowrap">
+                    <table class="table">
                         <thead><tr><th>User ID</th><th>Name</th><th>Phone</th><th>Action</th></tr></thead>
-                        <tbody>
+                        <tbody class="table-border-bottom-0">
                             <?php if ($pending_edits_res->num_rows > 0): while($user = $pending_edits_res->fetch_assoc()): ?>
                             <tr>
-                                <td><?php echo $user['user_id']; ?></td>
+                                <td><strong><?php echo $user['user_id']; ?></strong></td>
                                 <td><?php echo htmlspecialchars($user['user_name']); ?></td>
                                 <td><?php echo htmlspecialchars($user['user_phone']); ?></td>
                                 <td><a class="btn btn-warning btn-sm" href="manage_user.php?user_id=<?php echo $user['user_id']; ?>">Review Edits</a></td>
@@ -80,14 +82,14 @@ include "inc/header.php";
 
             <!-- SECTION 2: New Users Pending Initial Approval -->
             <div class="card mb-4">
-                <div class="card-header"><h5 class="card-title">New Users Pending Initial Approval</h5></div>
-                <div class="card-datatable table-responsive">
-                    <table class="table border-top">
+                <div class="card-header"><h5 class="card-title"><i class="fa fa-user-plus"></i> New Users Pending Initial Approval</h5></div>
+                <div class="table-responsive text-nowrap">
+                    <table class="table">
                         <thead><tr><th>User ID</th><th>Name</th><th>Phone</th><th>Registered On</th><th>Action</th></tr></thead>
-                        <tbody>
+                        <tbody class="table-border-bottom-0">
                             <?php if ($pending_users_res->num_rows > 0): while($user = $pending_users_res->fetch_assoc()): ?>
                             <tr>
-                                <td><?php echo $user['user_id']; ?></td>
+                                <td><strong><?php echo $user['user_id']; ?></strong></td>
                                 <td><?php echo htmlspecialchars($user['user_name']); ?></td>
                                 <td><?php echo htmlspecialchars($user['user_phone']); ?></td>
                                 <td><?php echo date('d M Y', strtotime($user['user_create_date'])); ?></td>
@@ -103,14 +105,14 @@ include "inc/header.php";
 
             <!-- SECTION 3: All Users List -->
             <div class="card">
-                <div class="card-header"><h5 class="card-title">Complete User List</h5></div>
-                <div class="card-datatable table-responsive">
-                    <table class="datatables-products table"> <!-- Using a class for DataTables JS if you have it -->
+                <div class="card-header"><h5 class="card-title"><i class="fa fa-users"></i> Complete User List</h5></div>
+                <div class="table-responsive text-nowrap">
+                    <table class="table">
                         <thead><tr><th>ID</th><th>Client Name</th><th>Phone Number</th><th>Gender</th><th>Status</th><th>Action</th></tr></thead>
-                        <tbody>
+                        <tbody class="table-border-bottom-0">
                             <?php if ($all_users_res->num_rows > 0): while($user = $all_users_res->fetch_assoc()): ?>
                             <tr>
-                                <td><?php echo $user['user_id']; ?></td>
+                                <td><strong><?php echo $user['user_id']; ?></strong></td>
                                 <td><?php echo htmlspecialchars($user['user_name']); ?></td>
                                 <td><?php echo htmlspecialchars($user['user_phone']); ?></td>
                                 <td><?php echo htmlspecialchars($user['user_gender']); ?></td>

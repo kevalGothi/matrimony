@@ -25,7 +25,6 @@ if (isset($_POST['verify_otp'])) {
             $update_stmt->bind_param("i", $user_id);
             $update_stmt->execute();
             
-            echo "<script>alert('Email verified successfully! You will now be redirected to the payment page.');</script>";
             echo "<script>window.location.href='pay.php?id=" . htmlspecialchars($user_id, ENT_QUOTES, 'UTF-8') . "&type=registration';</script>";
             exit();
         } else {
